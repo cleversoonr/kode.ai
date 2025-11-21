@@ -28,15 +28,22 @@
 */
 "use client";
 
+import { useState } from "react";
 import { AgentTypeSelector } from "@/app/agents/AgentTypeSelector";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { Agent, AgentType } from "@/types/agent";
 import { ApiKey } from "@/services/agentService";
 import { A2AAgentConfig } from "../config/A2AAgentConfig";
 import { LLMAgentConfig } from "../config/LLMAgentConfig";
 import { sanitizeAgentName } from "@/lib/utils";
+import { KnowledgeBase } from "@/types/knowledgeBase";
+import { X } from "lucide-react";
 
 interface ModelOption {
   value: string;
@@ -50,7 +57,7 @@ interface BasicInfoTabProps {
   apiKeys: ApiKey[];
   availableModels: ModelOption[];
   onOpenApiKeysDialog: () => void;
-  clientId: string;
+  knowledgeBases: KnowledgeBase[];
 }
 
 export function BasicInfoTab({
@@ -59,7 +66,9 @@ export function BasicInfoTab({
   apiKeys,
   availableModels,
   onOpenApiKeysDialog,
+  knowledgeBases,
 }: BasicInfoTabProps) {
+  const [knowledgePopoverOpen, setKnowledgePopoverOpen] = useState(false);
   const handleNameBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const sanitizedName = sanitizeAgentName(e.target.value);
     if (sanitizedName !== e.target.value) {
@@ -69,6 +78,12 @@ export function BasicInfoTab({
 
   const handleTypeChange = (type: AgentType) => {
     let newValues: Partial<Agent> = { ...values, type };
+
+    const knowledgeDefaults = {
+      knowledge_base_ids: values.config?.knowledge_base_ids || [],
+      rag_top_k: values.config?.rag_top_k ?? 5,
+      rag_score_threshold: values.config?.rag_score_threshold ?? 0.35,
+    };
 
     if (type === "llm") {
       newValues = {
@@ -86,6 +101,7 @@ export function BasicInfoTab({
             http_tools: [],
           },
           sub_agents: [],
+          ...knowledgeDefaults,
         },
       };
     } else if (type === "a2a") {
@@ -111,6 +127,7 @@ export function BasicInfoTab({
         config: {
           sub_agents: [],
           custom_mcp_servers: [],
+          ...knowledgeDefaults,
         },
       };
     } else if (type === "workflow") {
@@ -128,6 +145,7 @@ export function BasicInfoTab({
             nodes: [],
             edges: [],
           },
+          ...knowledgeDefaults,
         },
       };
     } else if (type === "task") {
@@ -142,6 +160,7 @@ export function BasicInfoTab({
         config: {
           tasks: [],
           sub_agents: [],
+          ...knowledgeDefaults,
         },
       };
     } else {
@@ -156,11 +175,48 @@ export function BasicInfoTab({
         config: {
           sub_agents: [],
           custom_mcp_servers: [],
+          ...knowledgeDefaults,
         },
       };
     }
 
     onChange(newValues);
+  };
+
+  const currentConfig = values.config || {};
+  const selectedKnowledgeBaseIds = currentConfig.knowledge_base_ids || [];
+  const selectedBases = knowledgeBases.filter((base) =>
+    selectedKnowledgeBaseIds.includes(base.id)
+  );
+
+  const updateConfig = (configPatch: Partial<Agent["config"]>) => {
+    onChange({
+      ...values,
+      config: {
+        ...(values.config || {}),
+        ...configPatch,
+      },
+    });
+  };
+
+  const toggleKnowledgeBase = (id: string) => {
+    const existing = new Set(selectedKnowledgeBaseIds);
+    if (existing.has(id)) {
+      existing.delete(id);
+    } else {
+      existing.add(id);
+    }
+    updateConfig({ knowledge_base_ids: Array.from(existing) });
+  };
+
+  const removeKnowledgeBase = (id: string) => {
+    updateConfig({
+      knowledge_base_ids: selectedKnowledgeBaseIds.filter((baseId) => baseId !== id),
+    });
+  };
+
+  const handleRagInput = (field: "rag_top_k" | "rag_score_threshold", value: number) => {
+    updateConfig({ [field]: value });
   };
 
   return (
@@ -203,6 +259,114 @@ export function BasicInfoTab({
             }
             className="col-span-3 bg-[#222] border-[#444] text-white"
           />
+        </div>
+      )}
+
+      {values.type !== "a2a" && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label className="text-right text-neutral-300">
+              Knowledge Bases
+            </Label>
+            <div className="col-span-3 space-y-2">
+              <Popover open={knowledgePopoverOpen} onOpenChange={setKnowledgePopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-between bg-[#1d1d1d] border-[#333] text-white hover:bg-[#2a2a2a]"
+                  >
+                    {selectedKnowledgeBaseIds.length > 0
+                      ? `${selectedKnowledgeBaseIds.length} selected`
+                      : "Select knowledge bases"}
+                    <span className="text-xs text-neutral-400">
+                      Context for RAG
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 bg-[#1a1a1a] border-[#333] text-white">
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
+                    {knowledgeBases.length === 0 ? (
+                      <p className="text-sm text-neutral-400">
+                        No knowledge bases found. Create one under “Knowledge Bases”.
+                      </p>
+                    ) : (
+                      knowledgeBases.map((base) => (
+                        <label
+                          key={base.id}
+                          className="flex items-start gap-3 text-sm text-neutral-200 cursor-pointer"
+                        >
+                          <Checkbox
+                            checked={selectedKnowledgeBaseIds.includes(base.id)}
+                            onCheckedChange={() => toggleKnowledgeBase(base.id)}
+                          />
+                          <div>
+                            <p className="font-medium">{base.name}</p>
+                            <p className="text-xs text-neutral-500">
+                              {base.description || "No description"}
+                            </p>
+                          </div>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {selectedBases.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {selectedBases.map((base) => (
+                    <Badge
+                      key={base.id}
+                      variant="secondary"
+                      className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 flex items-center gap-1"
+                    >
+                      {base.name}
+                      <button
+                        type="button"
+                        onClick={() => removeKnowledgeBase(base.id)}
+                        className="text-neutral-400 hover:text-white"
+                        aria-label={`Remove ${base.name}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
+              <p className="text-xs text-neutral-500">
+                Agents with linked knowledge bases automatically retrieve context before every response.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-sm text-neutral-300">Context top-K</Label>
+              <Input
+                type="number"
+                min={1}
+                value={currentConfig.rag_top_k ?? 5}
+                onChange={(event) => handleRagInput("rag_top_k", Number(event.target.value))}
+                className="bg-[#222] border-[#444] text-white"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm text-neutral-300">Score threshold</Label>
+              <Input
+                type="number"
+                step={0.05}
+                min={0}
+                max={1}
+                value={currentConfig.rag_score_threshold ?? 0.35}
+                onChange={(event) =>
+                  handleRagInput("rag_score_threshold", Number(event.target.value))
+                }
+                className="bg-[#222] border-[#444] text-white"
+              />
+            </div>
+          </div>
         </div>
       )}
 

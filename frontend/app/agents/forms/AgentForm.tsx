@@ -42,6 +42,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Agent } from "@/types/agent";
 import { ApiKey } from "@/services/agentService";
 import { MCPServer } from "@/types/mcpServer";
+import { KnowledgeBase } from "@/types/knowledgeBase";
 import { useState, useEffect } from "react";
 import { BasicInfoTab } from "./BasicInfoTab";
 import { ConfigurationTab } from "./ConfigurationTab";
@@ -62,6 +63,7 @@ interface AgentFormProps {
   apiKeys: ApiKey[];
   availableModels: ModelOption[];
   availableMCPs: MCPServer[];
+  knowledgeBases: KnowledgeBase[];
   agents: Agent[];
   onOpenApiKeysDialog: () => void;
   onOpenMCPDialog: (mcp?: any) => void;
@@ -79,6 +81,7 @@ export function AgentForm({
   apiKeys,
   availableModels,
   availableMCPs,
+  knowledgeBases,
   agents,
   onOpenApiKeysDialog,
   onOpenMCPDialog: externalOnOpenMCPDialog,
@@ -88,7 +91,17 @@ export function AgentForm({
   getAgentNameById,
   clientId,
 }: AgentFormProps) {
-  const [values, setValues] = useState<Partial<Agent>>(initialValues);
+  const normalizeConfig = (config?: Agent["config"]) => ({
+    ...(config || {}),
+    knowledge_base_ids: config?.knowledge_base_ids || [],
+    rag_top_k: config?.rag_top_k ?? 5,
+    rag_score_threshold: config?.rag_score_threshold ?? 0.35,
+  });
+
+  const [values, setValues] = useState<Partial<Agent>>({
+    ...initialValues,
+    config: normalizeConfig(initialValues.config),
+  });
   const [activeTab, setActiveTab] = useState("basic");
 
   const [mcpDialogOpen, setMcpDialogOpen] = useState(false);
@@ -98,7 +111,10 @@ export function AgentForm({
 
   useEffect(() => {
     if (open) {
-      setValues(initialValues);
+      setValues({
+        ...initialValues,
+        config: normalizeConfig(initialValues.config),
+      });
       setActiveTab("basic");
     }
   }, [open, initialValues]);
@@ -246,7 +262,7 @@ export function AgentForm({
                   apiKeys={apiKeys}
                   availableModels={availableModels}
                   onOpenApiKeysDialog={onOpenApiKeysDialog}
-                  clientId={clientId}
+                  knowledgeBases={knowledgeBases}
                 />
               </TabsContent>
 

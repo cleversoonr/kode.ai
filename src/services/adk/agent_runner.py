@@ -36,6 +36,7 @@ from src.utils.logger import setup_logger
 from src.core.exceptions import AgentNotFoundError, InternalServerError
 from src.services.agent_service import get_agent
 from src.services.adk.agent_builder import AgentBuilder
+from src.services.knowledge_retriever import KnowledgeRetriever
 from sqlalchemy.orm import Session
 from typing import Optional, AsyncGenerator
 import asyncio
@@ -87,6 +88,15 @@ async def run_agent(
 
             if get_root_agent is None:
                 raise AgentNotFoundError(f"Agent with ID {agent_id} not found")
+
+            knowledge_references = []
+            retriever = KnowledgeRetriever(db)
+            try:
+                rag_payload = retriever.apply_context(get_root_agent, message)
+                if rag_payload:
+                    knowledge_references = rag_payload.get("references", [])
+            except Exception as e:
+                logger.error(f"Error applying RAG context: {e}")
 
             # Using the AgentBuilder to create the agent
             agent_builder = AgentBuilder(db)
@@ -280,6 +290,7 @@ async def run_agent(
             return {
                 "final_response": final_response_text,
                 "message_history": message_history,
+                "knowledge_references": knowledge_references,
             }
         except AgentNotFoundError as e:
             logger.error(f"Error processing request: {str(e)}")
@@ -349,6 +360,15 @@ async def run_agent_stream(
 
                 if get_root_agent is None:
                     raise AgentNotFoundError(f"Agent with ID {agent_id} not found")
+
+                knowledge_references = []
+                retriever = KnowledgeRetriever(db)
+                try:
+                    rag_payload = retriever.apply_context(get_root_agent, message)
+                    if rag_payload:
+                        knowledge_references = rag_payload.get("references", [])
+                except Exception as e:
+                    logger.error(f"Error applying RAG context: {e}")
 
                 # Using the AgentBuilder to create the agent
                 agent_builder = AgentBuilder(db)
@@ -510,6 +530,13 @@ async def run_agent_stream(
                     )
 
                     memory_service.add_session_to_memory(completed_session)
+                    if knowledge_references:
+                        yield json.dumps(
+                            {
+                                "type": "knowledge_references",
+                                "references": knowledge_references,
+                            }
+                        )
                 except Exception as e:
                     logger.error(f"Error processing request: {str(e)}")
                     raise InternalServerError(str(e)) from e

@@ -90,6 +90,7 @@ Executes a specific task using a target agent with structured task instructions.
 - **Zod**: Schema validation
 - **ReactFlow**: Node-based visual workflows
 - **React Query**: Server state management
+- **Knowledge Base UI**: CRUD/ingestão de bases, seleção de contexto RAG para agentes e exibição de referências no chat
 
 ## 📊 Langfuse Integration (Tracing & Observability)
 
@@ -113,6 +114,11 @@ Evo AI platform natively supports integration with [Langfuse](https://langfuse.c
 Evo AI implements the Google's Agent 2 Agent (A2A) protocol, enabling seamless communication and interoperability between AI agents.
 
 For more information about the A2A protocol, visit [Google's A2A Protocol Documentation](https://google.github.io/A2A/).
+
+## 📚 Knowledge Base Guide
+
+- Passo-a-passo de ingestão e RAG disponível em [`docs/knowledge-base.md`](docs/knowledge-base.md).
+- Fluxo inclui criação de bases, uploads (arquivo/snippet/URL), seleção em agentes e leitura das referências no chat.
 
 ## 📋 Prerequisites
 

@@ -38,11 +38,14 @@ from sqlalchemy import (
     Text,
     CheckConstraint,
     Boolean,
+    Integer,
+    Index,
 )
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship, backref
 from src.config.database import Base
 import uuid
+from pgvector.sqlalchemy import Vector
 
 
 class Client(Base):
@@ -265,3 +268,151 @@ class ApiKey(Base):
     is_active = Column(Boolean, default=True)
 
     client = relationship("Client", backref="api_keys")
+
+
+class KnowledgeBase(Base):
+    __tablename__ = "knowledge_bases"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    client_id = Column(
+        UUID(as_uuid=True), ForeignKey("clients.id", ondelete="CASCADE"), nullable=False
+    )
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    language = Column(String, nullable=True)
+    embedding_model = Column(String, nullable=True)
+    chunk_size = Column(Integer, nullable=False, default=512)
+    chunk_overlap = Column(Integer, nullable=False, default=128)
+    is_active = Column(Boolean, default=True)
+    config = Column(JSON, default=dict, nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    client = relationship("Client", backref="knowledge_bases")
+    creator = relationship("User", foreign_keys=[created_by])
+    updater = relationship("User", foreign_keys=[updated_by])
+
+    documents = relationship(
+        "KnowledgeDocument", back_populates="knowledge_base", cascade="all, delete-orphan"
+    )
+
+
+class KnowledgeDocument(Base):
+    __tablename__ = "knowledge_documents"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    knowledge_base_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("knowledge_bases.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    client_id = Column(
+        UUID(as_uuid=True), ForeignKey("clients.id", ondelete="CASCADE"), nullable=False
+    )
+    source_type = Column(String, nullable=False)
+    original_filename = Column(String, nullable=True)
+    source_url = Column(String, nullable=True)
+    mime_type = Column(String, nullable=True)
+    storage_path = Column(String, nullable=True)
+    checksum = Column(String, nullable=True)
+    content_preview = Column(Text, nullable=True)
+    extra_metadata = Column(JSON, default=dict, nullable=False)
+    status = Column(
+        String, nullable=False, default="pending"
+    )  # pending, processing, ready, error
+    error_message = Column(Text, nullable=True)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    processing_started_at = Column(DateTime(timezone=True), nullable=True)
+    processing_finished_at = Column(DateTime(timezone=True), nullable=True)
+
+    knowledge_base = relationship("KnowledgeBase", back_populates="documents")
+    client = relationship("Client", backref="knowledge_documents")
+    creator = relationship("User", foreign_keys=[created_by])
+    updater = relationship("User", foreign_keys=[updated_by])
+
+    chunks = relationship(
+        "KnowledgeChunk", back_populates="document", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'processing', 'ready', 'error')",
+            name="check_knowledge_document_status",
+        ),
+        Index(
+            "ix_knowledge_documents_base_status",
+            "knowledge_base_id",
+            "status",
+        ),
+    )
+
+
+class KnowledgeChunk(Base):
+    __tablename__ = "knowledge_chunks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    knowledge_base_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("knowledge_bases.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    document_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("knowledge_documents.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    chunk_index = Column(Integer, nullable=False)
+    token_count = Column(Integer, nullable=False, default=0)
+    content = Column(Text, nullable=False)
+    chunk_metadata = Column(JSON, default=dict, nullable=False)
+    embedding = Column(Vector(1536), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    knowledge_base = relationship("KnowledgeBase", backref="chunks")
+    document = relationship("KnowledgeDocument", back_populates="chunks")
+
+    __table_args__ = (
+        Index(
+            "ix_knowledge_chunks_base_index",
+            "knowledge_base_id",
+            "chunk_index",
+        ),
+        Index(
+            "ix_knowledge_chunks_document",
+            "document_id",
+        ),
+    )
+
+
+class KnowledgeJob(Base):
+    __tablename__ = "knowledge_jobs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("knowledge_documents.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    job_type = Column(String, nullable=False, default="ingest")
+    status = Column(String, nullable=False, default="queued")
+    attempts = Column(Integer, nullable=False, default=0)
+    logs = Column(JSON, default=list)
+    error_message = Column(Text, nullable=True)
+    job_metadata = Column(JSON, default=dict)
+    queued_at = Column(DateTime(timezone=True), server_default=func.now())
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+
+    document = relationship("KnowledgeDocument", backref="jobs")
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('queued', 'processing', 'completed', 'failed')",
+            name="check_knowledge_job_status",
+        ),
+    )

@@ -60,9 +60,16 @@ class AgentBuilder:
         self.custom_tool_builder = CustomToolBuilder()
         self.mcp_service = MCPService()
 
+    def _get_agent_config(self, agent):
+        config = getattr(agent, "runtime_config", None)
+        if config:
+            return config
+        return agent.config or {}
+
     async def _agent_tools_builder(self, agent) -> List[AgentTool]:
         """Build the tools for an agent."""
-        agent_tools_ids = agent.config.get("agent_tools")
+        agent_config = self._get_agent_config(agent)
+        agent_tools_ids = agent_config.get("agent_tools")
         agent_tools = []
         if agent_tools_ids and isinstance(agent_tools_ids, list):
             for agent_tool_id in agent_tools_ids:
@@ -76,16 +83,17 @@ class AgentBuilder:
         self, agent, enabled_tools: List[str] = []
     ) -> Tuple[LlmAgent, Optional[AsyncExitStack]]:
         """Create an LLM agent from the agent data."""
+        agent_config = self._get_agent_config(agent)
         # Get custom tools from the configuration
         custom_tools = []
-        custom_tools = self.custom_tool_builder.build_tools(agent.config)
+        custom_tools = self.custom_tool_builder.build_tools(agent_config)
 
         # Get MCP tools from the configuration
         mcp_tools = []
         mcp_exit_stack = None
-        if agent.config.get("mcp_servers") or agent.config.get("custom_mcp_servers"):
+        if agent_config.get("mcp_servers") or agent_config.get("custom_mcp_servers"):
             mcp_tools, mcp_exit_stack = await self.mcp_service.build_tools(
-                agent.config, self.db
+                agent_config, self.db
             )
 
         # Get agent tools
@@ -125,11 +133,21 @@ class AgentBuilder:
             )
 
         # Check if load_memory is enabled
-        if agent.config.get("load_memory"):
+        if agent_config.get("load_memory"):
             all_tools.append(load_memory)
             formatted_prompt = (
                 formatted_prompt
                 + "\n\n<memory_instructions>ALWAYS use the load_memory tool to retrieve knowledge for your context</memory_instructions>\n\n"
+            )
+
+        # Inject RAG context if available
+        rag_context = agent_config.get("__rag_context__")
+        if rag_context and rag_context.get("text"):
+            formatted_prompt = (
+                formatted_prompt
+                + "\n\n<knowledge_base_context>"
+                + f"\n{rag_context['text']}\n"
+                + "</knowledge_base_context>\n"
             )
 
         # Get API key from api_key_id
@@ -148,7 +166,7 @@ class AgentBuilder:
                 )
         else:
             # Check if there is an API key in the config (temporary field)
-            config_api_key = agent.config.get("api_key") if agent.config else None
+            config_api_key = agent_config.get("api_key") if agent_config else None
             if config_api_key:
                 logger.info(f"Using config API key for agent {agent.name}")
                 # Check if it is a UUID of a stored key
@@ -229,9 +247,10 @@ class AgentBuilder:
         logger.info("Creating LLM agent")
 
         sub_agents = []
-        if root_agent.config.get("sub_agents"):
+        agent_config = self._get_agent_config(root_agent)
+        if agent_config.get("sub_agents"):
             sub_agents_with_stacks = await self._get_sub_agents(
-                root_agent.config.get("sub_agents")
+                agent_config.get("sub_agents")
             )
             sub_agents = [agent for agent, _ in sub_agents_with_stacks]
 
@@ -254,14 +273,14 @@ class AgentBuilder:
 
         try:
             sub_agents = []
-            if root_agent.config.get("sub_agents"):
+            agent_config = self._get_agent_config(root_agent)
+            if agent_config.get("sub_agents"):
                 sub_agents_with_stacks = await self._get_sub_agents(
-                    root_agent.config.get("sub_agents")
+                    agent_config.get("sub_agents")
                 )
                 sub_agents = [agent for agent, _ in sub_agents_with_stacks]
 
-            config = root_agent.config or {}
-            timeout = config.get("timeout", 300)
+            timeout = agent_config.get("timeout", 300)
 
             a2a_agent = A2ACustomAgent(
                 name=root_agent.name,
@@ -288,21 +307,20 @@ class AgentBuilder:
         """Build a workflow agent with its sub-agents."""
         logger.info(f"Creating Workflow agent from {root_agent.name}")
 
-        agent_config = root_agent.config or {}
+        agent_config = self._get_agent_config(root_agent)
 
         if not agent_config.get("workflow"):
             raise ValueError("workflow is required for workflow agents")
 
         try:
             sub_agents = []
-            if root_agent.config.get("sub_agents"):
+            if agent_config.get("sub_agents"):
                 sub_agents_with_stacks = await self._get_sub_agents(
-                    root_agent.config.get("sub_agents")
+                    agent_config.get("sub_agents")
                 )
                 sub_agents = [agent for agent, _ in sub_agents_with_stacks]
 
-            config = root_agent.config or {}
-            timeout = config.get("timeout", 300)
+            timeout = agent_config.get("timeout", 300)
 
             workflow_agent = WorkflowAgent(
                 name=root_agent.name,
@@ -328,7 +346,7 @@ class AgentBuilder:
         """Build a task agent with its sub-agents."""
         logger.info(f"Creating Task agent: {root_agent.name}")
 
-        agent_config = root_agent.config or {}
+        agent_config = self._get_agent_config(root_agent)
 
         if not agent_config.get("tasks"):
             raise ValueError("tasks are required for Task agents")
@@ -336,18 +354,16 @@ class AgentBuilder:
         try:
             # Get sub-agents if there are any
             sub_agents = []
-            if root_agent.config.get("sub_agents"):
+            if agent_config.get("sub_agents"):
                 sub_agents_with_stacks = await self._get_sub_agents(
-                    root_agent.config.get("sub_agents")
+                    agent_config.get("sub_agents")
                 )
                 sub_agents = [agent for agent, _ in sub_agents_with_stacks]
 
             # Additional configurations
-            config = root_agent.config or {}
-
             # Convert tasks to the expected format by TaskAgent
             tasks = []
-            for task_config in config.get("tasks", []):
+            for task_config in agent_config.get("tasks", []):
                 task = AgentTask(
                     agent_id=task_config.get("agent_id"),
                     description=task_config.get("description", ""),
@@ -380,22 +396,24 @@ class AgentBuilder:
             f"Processing sub-agents for agent {root_agent.type} (ID: {root_agent.id}, Name: {root_agent.name})"
         )
 
-        if not root_agent.config.get("sub_agents"):
+        agent_config = self._get_agent_config(root_agent)
+
+        if not agent_config.get("sub_agents"):
             logger.error(
                 f"Sub_agents configuration not found or empty for agent {root_agent.name}"
             )
             raise ValueError(f"Missing sub_agents configuration for {root_agent.name}")
 
         logger.info(
-            f"Sub-agents IDs to be processed: {root_agent.config.get('sub_agents', [])}"
+            f"Sub-agents IDs to be processed: {agent_config.get('sub_agents', [])}"
         )
 
         sub_agents_with_stacks = await self._get_sub_agents(
-            root_agent.config.get("sub_agents", [])
+            agent_config.get("sub_agents", [])
         )
 
         logger.info(
-            f"Sub-agents processed: {len(sub_agents_with_stacks)} of {len(root_agent.config.get('sub_agents', []))}"
+            f"Sub-agents processed: {len(sub_agents_with_stacks)} of {len(agent_config.get('sub_agents', []))}"
         )
 
         sub_agents = [agent for agent, _ in sub_agents_with_stacks]
@@ -407,7 +425,7 @@ class AgentBuilder:
                 SequentialAgent(
                     name=root_agent.name,
                     sub_agents=sub_agents,
-                    description=root_agent.config.get("description", ""),
+                    description=agent_config.get("description", ""),
                 ),
                 None,
             )
@@ -417,7 +435,7 @@ class AgentBuilder:
                 ParallelAgent(
                     name=root_agent.name,
                     sub_agents=sub_agents,
-                    description=root_agent.config.get("description", ""),
+                    description=agent_config.get("description", ""),
                 ),
                 None,
             )
@@ -427,8 +445,8 @@ class AgentBuilder:
                 LoopAgent(
                     name=root_agent.name,
                     sub_agents=sub_agents,
-                    description=root_agent.config.get("description", ""),
-                    max_iterations=root_agent.config.get("max_iterations", 5),
+                    description=agent_config.get("description", ""),
+                    max_iterations=agent_config.get("max_iterations", 5),
                 ),
                 None,
             )

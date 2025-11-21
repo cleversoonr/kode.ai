@@ -30,7 +30,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const PUBLIC_PATHS = ['/login', '/security/verify-email', '/security/reset-password', '/shared-chat']
 const ADMIN_PATHS = ['/clients', '/mcp-servers']
-const CLIENT_PATHS = ['/agents', '/chat']
+const CLIENT_PATHS = ['/agents', '/chat', '/knowledge-bases']
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl

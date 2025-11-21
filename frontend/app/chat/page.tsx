@@ -512,6 +512,23 @@ Args: ${
   };
 
   const onEvent = useCallback((event: any) => {
+    if (event?.type === "knowledge_references" && Array.isArray(event.references)) {
+      setMessages((prev) => {
+        const updated = [...prev];
+        for (let i = updated.length - 1; i >= 0; i--) {
+          const candidate = updated[i];
+          if (candidate && candidate.author !== "user") {
+            updated[i] = {
+              ...candidate,
+              knowledge_references: event.references,
+            };
+            break;
+          }
+        }
+        return updated;
+      });
+      return;
+    }
     setMessages((prev) => [...prev, event]);
   }, []);
 

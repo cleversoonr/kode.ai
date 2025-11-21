@@ -30,7 +30,8 @@
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ChatMessage as ChatMessageType } from "@/services/sessionService";
-import { ChevronDown, ChevronRight, Copy, Check, User, Bot, Terminal } from "lucide-react";
+import { KnowledgeReference } from "@/types/knowledgeBase";
+import { ChevronDown, ChevronRight, Copy, Check, User, Bot, Terminal, Link2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useState } from "react";
@@ -87,6 +88,7 @@ export function ChatMessage({
   
   const inlineDataParts = message.content.parts.filter(part => part.inline_data);
   const hasInlineData = inlineDataParts.length > 0;
+  const knowledgeReferences = message.knowledge_references as KnowledgeReference[] | undefined;
 
   const copyToClipboard = () => {
     const textToCopy = typeof messageContent === "string" 
@@ -353,6 +355,65 @@ export function ChatMessage({
               
               {hasInlineData && (
                 <InlineDataAttachments parts={inlineDataParts} sessionId={sessionId} />
+              )}
+
+              {knowledgeReferences && knowledgeReferences.length > 0 && (
+                <div className="mt-4 border-t border-neutral-700/60 pt-3">
+                  <div className="text-xs uppercase tracking-wide text-neutral-400 mb-2">
+                    Sources referenced
+                  </div>
+                  <div className="space-y-3">
+                    {knowledgeReferences.map((reference, index) => {
+                      const source =
+                        reference.source ||
+                        reference.metadata?.source_url ||
+                        reference.document_id ||
+                        `Reference ${index + 1}`;
+                      const link =
+                        reference.metadata?.source_url ||
+                        reference.metadata?.url ||
+                        reference.metadata?.original_url;
+
+                      return (
+                        <div
+                          key={`${reference.document_id || index}-${reference.chunk_index ?? 0}`}
+                          className="rounded-lg bg-neutral-900/60 border border-neutral-800 px-3 py-2 text-sm text-neutral-200"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <p className="font-medium text-white line-clamp-1">{source}</p>
+                              <p className="text-xs text-neutral-400 flex flex-wrap gap-2">
+                                {reference.chunk_index !== undefined && (
+                                  <span>Chunk {reference.chunk_index}</span>
+                                )}
+                                {reference.knowledge_base_id && (
+                                  <span>
+                                    Base {reference.knowledge_base_id.slice(0, 8)}…
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                            {reference.score !== undefined && (
+                              <span className="text-xs text-neutral-500">
+                                score {reference.score.toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                          {link && (
+                            <a
+                              href={link}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300"
+                            >
+                              <Link2 className="h-3 w-3" /> Open source
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </div>
           )}

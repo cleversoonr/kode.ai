@@ -104,6 +104,9 @@ export interface AgentConfig {
   custom_tools?: CustomTools;
   mcp_servers?: MCPServerConfig[];
   custom_mcp_servers?: CustomMCPServer[];
+  knowledge_base_ids?: string[];
+  rag_top_k?: number;
+  rag_score_threshold?: number;
 
   // Sequential, Parallel e Loop config
   sub_agents?: string[];

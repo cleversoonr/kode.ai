@@ -1,0 +1,11 @@
+LICENSE
+README.md
+pyproject.toml
+setup.py
+evo_ai.egg-info/PKG-INFO
+evo_ai.egg-info/SOURCES.txt
+evo_ai.egg-info/dependency_links.txt
+evo_ai.egg-info/requires.txt
+evo_ai.egg-info/top_level.txt
+src/__init__.py
+src/main.py

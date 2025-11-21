@@ -75,6 +75,8 @@ import { ShareAgentDialog } from "./dialogs/ShareAgentDialog";
 import { MCPServer } from "@/types/mcpServer";
 import { availableModels } from "@/types/aiModels";
 import { ImportAgentDialog } from "./dialogs/ImportAgentDialog";
+import { listKnowledgeBases } from "@/services/knowledgeBaseService";
+import { KnowledgeBase } from "@/types/knowledgeBase";
 
 export default function AgentsPage() {
   const { toast } = useToast();
@@ -91,6 +93,7 @@ export default function AgentsPage() {
   const [folders, setFolders] = useState<AgentFolder[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [availableMCPs, setAvailableMCPs] = useState<MCPServer[]>([]);
+  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAgentType, setSelectedAgentType] = useState<string | null>(null);
   const [agentTypes, setAgentTypes] = useState<string[]>([]);
@@ -135,6 +138,9 @@ export default function AgentsPage() {
       },
       sub_agents: [],
       agent_tools: [],
+      knowledge_base_ids: [],
+      rag_top_k: 5,
+      rag_score_threshold: 0.35,
     },
   });
 
@@ -147,6 +153,8 @@ export default function AgentsPage() {
     loadAgents();
     loadFolders();
     loadApiKeys();
+    loadKnowledgeBases();
+    setNewAgent((prev) => ({ ...prev, client_id: clientId }));
   }, [clientId, selectedFolderId]);
 
   useEffect(() => {
@@ -196,6 +204,16 @@ export default function AgentsPage() {
       toast({ title: "Error loading folders", variant: "destructive" });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadKnowledgeBases = async () => {
+    if (!clientId) return;
+    try {
+      const res = await listKnowledgeBases(clientId);
+      setKnowledgeBases(res.data);
+    } catch (error) {
+      toast({ title: "Error loading knowledge bases", variant: "destructive" });
     }
   };
 
@@ -300,7 +318,13 @@ export default function AgentsPage() {
 
   const handleEditAgent = (agent: Agent) => {
     setEditingAgent(agent);
-    setNewAgent({ ...agent });
+    const normalizedConfig = {
+      ...(agent.config || {}),
+      knowledge_base_ids: agent.config?.knowledge_base_ids || [],
+      rag_top_k: agent.config?.rag_top_k ?? 5,
+      rag_score_threshold: agent.config?.rag_score_threshold ?? 0.35,
+    };
+    setNewAgent({ ...agent, config: normalizedConfig });
     setIsDialogOpen(true);
   };
 
@@ -435,6 +459,9 @@ export default function AgentsPage() {
         },
         sub_agents: [],
         agent_tools: [],
+        knowledge_base_ids: [],
+        rag_top_k: 5,
+        rag_score_threshold: 0.35,
       },
     });
     setEditingAgent(null);
@@ -674,6 +701,7 @@ export default function AgentsPage() {
         apiKeys={apiKeys}
         availableModels={availableModels}
         availableMCPs={availableMCPs}
+        knowledgeBases={knowledgeBases}
         agents={agents}
         onOpenApiKeysDialog={() => setIsApiKeysDialogOpen(true)}
         onOpenMCPDialog={() => setIsMCPDialogOpen(true)}

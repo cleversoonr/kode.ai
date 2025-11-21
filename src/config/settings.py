@@ -41,24 +41,36 @@ class Settings(BaseSettings):
     """Project settings"""
 
     # API settings
-    API_TITLE: str = os.getenv("API_TITLE", "Evo AI API")
+    API_TITLE: str = os.getenv("API_TITLE", "Kode AI API")
     API_DESCRIPTION: str = os.getenv("API_DESCRIPTION", "API for executing AI agents")
     API_VERSION: str = os.getenv("API_VERSION", "1.0.0")
     API_URL: str = os.getenv("API_URL", "http://localhost:8000")
 
     # Organization settings
-    ORGANIZATION_NAME: str = os.getenv("ORGANIZATION_NAME", "Evo AI")
+    ORGANIZATION_NAME: str = os.getenv("ORGANIZATION_NAME", "Kode AI")
     ORGANIZATION_URL: str = os.getenv(
-        "ORGANIZATION_URL", "https://evoai.evoapicloud.com"
+        "ORGANIZATION_URL", "https://kodedigital.com.br"
     )
 
     # Database settings
     POSTGRES_CONNECTION_STRING: str = os.getenv(
-        "POSTGRES_CONNECTION_STRING", "postgresql://postgres:root@localhost:5432/evo_ai"
+        "POSTGRES_CONNECTION_STRING", "postgresql://postgres:208a954bc90040cb9d9bf78a058e1bc2@5.78.73.168:5432/kode_ai"
     )
 
     # AI engine settings
     AI_ENGINE: str = os.getenv("AI_ENGINE", "adk")
+    VECTOR_STORE_PROVIDER: str = os.getenv("VECTOR_STORE_PROVIDER", "pgvector")
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-large")
+    EMBEDDING_API_KEY: Optional[str] = os.getenv("EMBEDDING_API_KEY")
+    EMBEDDING_DIMENSIONS: int = int(os.getenv("EMBEDDING_DIMENSIONS", 1536))
+    MAX_CHUNK_TOKENS: int = int(os.getenv("MAX_CHUNK_TOKENS", 512))
+    CHUNK_OVERLAP: int = int(os.getenv("CHUNK_OVERLAP", 128))
+    KNOWLEDGE_STORAGE_PATH: str = os.getenv("KNOWLEDGE_STORAGE_PATH", "static/knowledge")
+    MAX_UPLOAD_SIZE_MB: int = int(os.getenv("MAX_UPLOAD_SIZE_MB", 25))
+    KNOWLEDGE_ALLOWED_MIME_TYPES: List[str] = os.getenv(
+        "KNOWLEDGE_ALLOWED_MIME_TYPES",
+        "application/pdf,text/plain,text/markdown,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ).split(",")
 
     # Logging settings
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
@@ -92,13 +104,13 @@ class Settings(BaseSettings):
     EMAIL_FROM: str = os.getenv("EMAIL_FROM", "noreply@yourdomain.com")
 
     # SMTP settings
-    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.google.com")
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", 587))
-    SMTP_USER: str = os.getenv("SMTP_USER", "")
-    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_USER: str = os.getenv("SMTP_USER", "kodedigital@gmail.com")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "Ks@475869")
     SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
     SMTP_USE_SSL: bool = os.getenv("SMTP_USE_SSL", "false").lower() == "true"
-    SMTP_FROM: str = os.getenv("SMTP_FROM", "")
+    SMTP_FROM: str = os.getenv("SMTP_FROM", "kodedigital@gmail.com")
 
     APP_URL: str = os.getenv("APP_URL", "http://localhost:8000")
 
@@ -130,9 +142,9 @@ class Settings(BaseSettings):
     DEMO_CLIENT_NAME: str = os.getenv("DEMO_CLIENT_NAME", "Demo Client")
 
     # Langfuse / OpenTelemetry settings
-    LANGFUSE_PUBLIC_KEY: str = os.getenv("LANGFUSE_PUBLIC_KEY", "")
-    LANGFUSE_SECRET_KEY: str = os.getenv("LANGFUSE_SECRET_KEY", "")
-    OTEL_EXPORTER_OTLP_ENDPOINT: str = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+    LANGFUSE_PUBLIC_KEY: str = os.getenv("LANGFUSE_PUBLIC_KEY", "pk-lf-0bc949f9-a009-4170-b369-226dba072ce4")
+    LANGFUSE_SECRET_KEY: str = os.getenv("LANGFUSE_SECRET_KEY", "sk-lf-beeda2ec-4ea1-44b6-8282-5355063d7c3f")
+    OTEL_EXPORTER_OTLP_ENDPOINT: str = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://us.cloud.langfuse.com")
 
     class Config:
         env_file = ".env"

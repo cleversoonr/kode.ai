@@ -47,6 +47,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Menu,
+  BookOpenCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
@@ -101,6 +102,11 @@ export default function Sidebar() {
             name: "Agents",
             href: "/agents",
             icon: Grid3X3,
+          },
+          {
+            name: "Knowledge Bases",
+            href: "/knowledge-bases",
+            icon: BookOpenCheck,
           },
           {
             name: "Chat",

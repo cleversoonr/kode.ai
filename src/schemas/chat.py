@@ -60,6 +60,9 @@ class ChatResponse(BaseModel):
     message_history: List[Dict[str, Any]] = Field(
         default_factory=list, description="Message history"
     )
+    knowledge_references: Optional[List[Dict[str, Any]]] = Field(
+        default=None, description="Knowledge sources used in the response"
+    )
     status: str = Field(..., description="Response status (success/error)")
     timestamp: str = Field(..., description="Response timestamp")
 

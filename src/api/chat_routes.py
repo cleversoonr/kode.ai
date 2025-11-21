@@ -304,6 +304,7 @@ async def chat(
         return {
             "response": final_response["final_response"],
             "message_history": final_response["message_history"],
+            "knowledge_references": final_response.get("knowledge_references"),
             "status": "success",
             "timestamp": datetime.now().isoformat(),
         }

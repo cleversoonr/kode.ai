@@ -27,6 +27,7 @@
 └──────────────────────────────────────────────────────────────────────────────┘
 */
 import api from "./api";
+import { KnowledgeReference } from "@/types/knowledgeBase";
 
 export interface ChatSession {
   id: string;
@@ -90,6 +91,7 @@ export interface ChatMessage {
   };
   author: string;
   timestamp: number;
+  knowledge_references?: KnowledgeReference[];
   [key: string]: any;
 }
 
