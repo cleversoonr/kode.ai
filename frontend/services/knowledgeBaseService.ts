@@ -47,13 +47,14 @@ export const listKnowledgeBases = (
   clientId: string,
   params?: { search?: string; skip?: number; limit?: number }
 ) => {
+  const listPath = `${BASE_PATH}/`;
   const searchParams = new URLSearchParams();
   if (params?.search) searchParams.append("search", params.search);
   searchParams.append("skip", String(params?.skip ?? 0));
   searchParams.append("limit", String(params?.limit ?? 100));
 
   const query = searchParams.toString();
-  const url = query ? `${BASE_PATH}?${query}` : BASE_PATH;
+  const url = query ? `${listPath}?${query}` : listPath;
   return api.get<KnowledgeBase[]>(url, withClientHeader(clientId));
 };
 
@@ -63,7 +64,7 @@ export const getKnowledgeBase = (clientId: string, id: string) =>
 export const createKnowledgeBase = (
   clientId: string,
   payload: KnowledgeBasePayload
-) => api.post<KnowledgeBase>(`${BASE_PATH}`, payload, withClientHeader(clientId));
+) => api.post<KnowledgeBase>(`${BASE_PATH}/`, payload, withClientHeader(clientId));
 
 export const updateKnowledgeBase = (
   clientId: string,

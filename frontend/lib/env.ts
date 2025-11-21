@@ -11,5 +11,13 @@ export const getEnv = (key: string, defaultValue?: string): string => {
 };
 
 export const getApiUrl = (): string => {
-  return getEnv('NEXT_PUBLIC_API_URL', 'https://api-evoai.evoapicloud.com');
-}; 
+  const envUrl = getEnv('NEXT_PUBLIC_API_URL');
+  if (envUrl) return envUrl;
+
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname } = window.location;
+    return `${protocol}//${hostname}:8000`;
+  }
+
+  return 'http://localhost:8000';
+};

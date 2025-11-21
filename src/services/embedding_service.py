@@ -29,13 +29,18 @@ def generate_embeddings(texts: Iterable[str]) -> List[List[float]]:
 
     api_key = settings.EMBEDDING_API_KEY
     if not api_key:
-        logger.error("EMBEDDING_API_KEY is not configured")
-        raise ValueError("Embedding API key not configured")
+    logger.error("EMBEDDING_API_KEY is not configured")
+    raise ValueError("Embedding API key not configured")
+
+    kwargs = {}
+    if settings.EMBEDDING_BASE_URL:
+        kwargs["base_url"] = settings.EMBEDDING_BASE_URL
 
     response = embedding(
         model=settings.EMBEDDING_MODEL,
         input=text_list,
         api_key=api_key,
+        **kwargs,
     )
 
     data = response.get("data", [])

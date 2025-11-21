@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, UUID4, field_validator, HttpU
 
 class KnowledgeBaseCreate(BaseModel):
     name: str = Field(..., max_length=120)
-    description: Optional[str] = Field(default=None, max_length=2000)
+    description: Optional[str] = Field(default=None)
     language: Optional[str] = Field(default=None, max_length=16)
     embedding_model: Optional[str] = Field(default=None, max_length=255)
     chunk_size: int = Field(default=512, ge=64, le=4096)
@@ -23,7 +23,7 @@ class KnowledgeBaseCreate(BaseModel):
 
 class KnowledgeBaseUpdate(BaseModel):
     name: Optional[str] = Field(default=None, max_length=120)
-    description: Optional[str] = Field(default=None, max_length=2000)
+    description: Optional[str] = Field(default=None)
     language: Optional[str] = Field(default=None, max_length=16)
     embedding_model: Optional[str] = Field(default=None, max_length=255)
     chunk_size: Optional[int] = Field(default=None, ge=64, le=4096)

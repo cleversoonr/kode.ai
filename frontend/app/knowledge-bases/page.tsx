@@ -34,13 +34,13 @@ import {
   updateKnowledgeBase,
 } from "@/services/knowledgeBaseService";
 import { KnowledgeBase, KnowledgeBasePayload } from "@/types/knowledgeBase";
-import { Plus, Search, Book, Database, Library, Edit, Trash2, ArrowRight } from "lucide-react";
+import { Plus, Search, Book, Database, Library, Edit, Trash2, ArrowRight, Loader2 } from "lucide-react";
 
 const defaultPayload: KnowledgeBasePayload = {
   name: "",
   description: "",
   language: "en",
-  embedding_model: "text-embedding-3-large",
+  embedding_model: "gpt-4.1",
   chunk_size: 512,
   chunk_overlap: 128,
 };
@@ -64,6 +64,8 @@ export default function KnowledgeBasesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedBase, setSelectedBase] = useState<KnowledgeBase | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savingMessage, setSavingMessage] = useState("");
 
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedSearch(searchTerm), 400);
@@ -105,23 +107,79 @@ export default function KnowledgeBasesPage() {
       name: knowledgeBase.name,
       description: knowledgeBase.description || "",
       language: knowledgeBase.language || "en",
-      embedding_model: knowledgeBase.embedding_model || "text-embedding-3-large",
+      embedding_model: knowledgeBase.embedding_model || "gpt-4.1",
       chunk_size: knowledgeBase.chunk_size,
       chunk_overlap: knowledgeBase.chunk_overlap,
     });
     setIsDialogOpen(true);
   };
 
+  const normalizeErrorMessage = (error: any) => {
+    const detail = error?.response?.data?.detail;
+    if (!detail) return "Unable to save knowledge base";
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      return detail
+        .map((item) => item?.msg || (typeof item === "string" ? item : JSON.stringify(item)))
+        .join(" • ");
+    }
+    if (typeof detail === "object") {
+      return detail.message || detail.msg || JSON.stringify(detail);
+    }
+    return "Unable to save knowledge base";
+  };
+
   const handleSave = async () => {
     if (!clientId) return;
+    const trimmedName = formValues.name.trim();
+    const chunkSize = Number(formValues.chunk_size);
+    const chunkOverlap = Number(formValues.chunk_overlap);
+
+    if (!trimmedName) {
+      toast({
+        title: "Name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!Number.isFinite(chunkSize) || chunkSize < 64 || chunkSize > 4096) {
+      toast({
+        title: "Chunk size must be between 64 and 4096",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!Number.isFinite(chunkOverlap) || chunkOverlap < 0 || chunkOverlap > 2048) {
+      toast({
+        title: "Chunk overlap must be between 0 and 2048",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const payload: KnowledgeBasePayload = {
+      name: trimmedName,
+      description: formValues.description?.trim() || undefined,
+      language: formValues.language?.trim() || undefined,
+      embedding_model: formValues.embedding_model?.trim() || undefined,
+      chunk_size: chunkSize,
+      chunk_overlap: chunkOverlap,
+    };
+
+    setIsSaving(true);
+    setSavingMessage(editingBase ? "Updating knowledge base..." : "Creating knowledge base...");
+
     try {
       if (editingBase) {
-        await updateKnowledgeBase(clientId, editingBase.id, formValues);
+        await updateKnowledgeBase(clientId, editingBase.id, payload);
         toast({ title: "Knowledge base updated" });
       } else {
-        await createKnowledgeBase(clientId, formValues);
+        await createKnowledgeBase(clientId, payload);
         toast({ title: "Knowledge base created" });
       }
+      setSavingMessage("Refreshing list...");
       setIsDialogOpen(false);
       setEditingBase(null);
       setFormValues(defaultPayload);
@@ -129,9 +187,13 @@ export default function KnowledgeBasesPage() {
     } catch (error: any) {
       console.error("Error saving knowledge base", error);
       toast({
-        title: error?.response?.data?.detail || "Unable to save knowledge base",
+        title: "Unable to save knowledge base",
+        description: normalizeErrorMessage(error),
         variant: "destructive",
       });
+    } finally {
+      setIsSaving(false);
+      setSavingMessage("");
     }
   };
 
@@ -302,7 +364,7 @@ export default function KnowledgeBasesPage() {
               {editingBase ? "Edit knowledge base" : "New knowledge base"}
             </DialogTitle>
             <DialogDescription className="text-neutral-400">
-              Configure the main information used to chunk and vectorize new documents.
+              Give your knowledge base a clear name and description.
             </DialogDescription>
           </DialogHeader>
 
@@ -312,6 +374,7 @@ export default function KnowledgeBasesPage() {
                 <label className="text-sm text-neutral-300">Name</label>
                 <Input
                   value={formValues.name}
+                  disabled={isSaving}
                   onChange={(event) =>
                     setFormValues((prev) => ({ ...prev, name: event.target.value }))
                   }
@@ -322,6 +385,7 @@ export default function KnowledgeBasesPage() {
                 <label className="text-sm text-neutral-300">Language</label>
                 <Input
                   value={formValues.language}
+                  disabled={isSaving}
                   onChange={(event) =>
                     setFormValues((prev) => ({ ...prev, language: event.target.value }))
                   }
@@ -335,74 +399,46 @@ export default function KnowledgeBasesPage() {
               <label className="text-sm text-neutral-300">Description</label>
               <Textarea
                 value={formValues.description}
+                disabled={isSaving}
                 onChange={(event) =>
                   setFormValues((prev) => ({ ...prev, description: event.target.value }))
                 }
                 className="bg-neutral-900 border-neutral-800"
               />
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-sm text-neutral-300">Embedding model</label>
-                <Input
-                  value={formValues.embedding_model}
-                  onChange={(event) =>
-                    setFormValues((prev) => ({
-                      ...prev,
-                      embedding_model: event.target.value,
-                    }))
-                  }
-                  className="bg-neutral-900 border-neutral-800"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm text-neutral-300">Chunk size</label>
-                  <Input
-                    type="number"
-                    min={64}
-                    value={formValues.chunk_size}
-                    onChange={(event) =>
-                      setFormValues((prev) => ({
-                        ...prev,
-                        chunk_size: Number(event.target.value),
-                      }))
-                    }
-                    className="bg-neutral-900 border-neutral-800"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm text-neutral-300">Overlap</label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={formValues.chunk_overlap}
-                    onChange={(event) =>
-                      setFormValues((prev) => ({
-                        ...prev,
-                        chunk_overlap: Number(event.target.value),
-                      }))
-                    }
-                    className="bg-neutral-900 border-neutral-800"
-                  />
-                </div>
-              </div>
-            </div>
           </div>
 
-          <DialogFooter className="pt-4 flex gap-2 justify-end">
+          <DialogFooter className="pt-4 flex flex-col gap-3">
+            {isSaving && (
+              <div className="flex items-center gap-3 text-sm text-neutral-300 bg-neutral-800/60 border border-neutral-700 rounded-md px-3 py-2">
+                <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+                <span>{savingMessage || "Processing..."}</span>
+              </div>
+            )}
+            <div className="flex gap-2 justify-end">
             <Button
               variant="ghost"
               className="text-neutral-400 hover:text-white"
               onClick={() => setIsDialogOpen(false)}
+              disabled={isSaving}
             >
               Cancel
             </Button>
-            <Button className="bg-emerald-500 hover:bg-emerald-600" onClick={handleSave}>
-              {editingBase ? "Save changes" : "Create"}
+            <Button
+              className="bg-emerald-500 hover:bg-emerald-600"
+              onClick={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {editingBase ? "Saving..." : "Creating..."}
+                </span>
+              ) : (
+                editingBase ? "Save changes" : "Create"
+              )}
             </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

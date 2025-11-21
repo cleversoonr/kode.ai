@@ -60,7 +60,8 @@ class Settings(BaseSettings):
     # AI engine settings
     AI_ENGINE: str = os.getenv("AI_ENGINE", "adk")
     VECTOR_STORE_PROVIDER: str = os.getenv("VECTOR_STORE_PROVIDER", "pgvector")
-    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-large")
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "gpt-4.1")
+    EMBEDDING_BASE_URL: Optional[str] = os.getenv("EMBEDDING_BASE_URL", "https://openrouter.ai/api/v1")
     EMBEDDING_API_KEY: Optional[str] = os.getenv("EMBEDDING_API_KEY")
     EMBEDDING_DIMENSIONS: int = int(os.getenv("EMBEDDING_DIMENSIONS", 1536))
     MAX_CHUNK_TOKENS: int = int(os.getenv("MAX_CHUNK_TOKENS", 512))

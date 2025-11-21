@@ -2,6 +2,7 @@
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
+# backend
 - configurar env
 make alembic-upgrade
 make seed-all
@@ -10,6 +11,7 @@ make run
 # frontend
 pnpm install 
 pnpm dev
+
 
 # completo
 Backend
